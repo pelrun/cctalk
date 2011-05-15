@@ -17,8 +17,7 @@ this.
 
 The python-cctalk library uses python-serial to communicate with
 ccTalk coin validators.  This module is only possible thanks to the
-excellent python-serial package.  If required python-cctalk can be
-easily extended to any ccTalk aware hardware.
+excellent python-serial package.  
 
 
 Contents:
