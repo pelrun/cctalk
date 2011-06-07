@@ -1,100 +1,29 @@
+""" Provides the CoinMessenger class definition.
+
+Module content
+--------------
+"""
+# Author: David Schryer
+# Created: 2011
+
+__autodoc__ = ['CoinMessenger']
+
+__all__ = __autodoc__
+
 import numpy
 import time
 
 from struct import pack, unpack, calcsize
-from cctalk.tools import Holder, make_serial_object
+from cctalk.tools import make_serial_object, make_msg, send_packet_and_get_reply, interpret_reply
+from cctalk.holder import Holder
 
-def make_msg(code, data=None, to_slave_addr=2, from_host_addr=1):
-    if not data:
-        seq = [to_slave_addr, 0, from_host_addr, code]
-    else:
-        seq = [to_slave_addr, len(data), from_host_addr, code] + data
-    packet = numpy.array(seq)
-    end_byte = 256 - (packet.sum()%256)
-    packet = packet.tolist() + [end_byte]
-    return packet
+class CoinMessenger(object):
+    """This is an object used to talk with ccTalk coin validators.
 
-def send_packet_and_get_reply(serial_object, packet_holder, initial_wait=0.05, total_wait=1,
-                              debug=True, verbose=True):
-
-    h = packet_holder
-    packet = h.packet
-    byte_msg = h.byte_message
-
-    s = time.time()
-    serial_object.write(packet)
-    time.sleep(initial_wait)
-    while True:
-        t = time.time() - s
-        if t > total_wait: break
-
-        raw = serial_object.read(serial_object.inWaiting())
-        if len(raw) > 1:
-            len_raw = len(raw)
-            out_byte = unpack('={0}c'.format(int(len_raw)), raw)
-            out_int = map(ord, out_byte)
-
-            if verbose:
-                print 'Recieved original packet int: {0}   byte:{1}'.format(out_int, out_byte)
-            
-            if len(out_byte) == len(byte_msg) and debug:
-                print 'Recieved original packet int: {0}   byte:{1}'.format(out_int, byte_msg)
-            elif len(out_byte) < len(byte_msg) and debug:
-                print 'Recieved small packet int: {0}   byte:{1}'.format(out_int, byte_msg)
-            else:
-                # The first part of the return is the echo in the line
-                # (a repeat of the message sent).
-                start_index = 5 + h.bytes_sent
-                reply_packet = out_byte[start_index:]
-
-                reply_msg = interpret_reply(reply_packet, packet_holder, verbose=verbose)
-
-                if reply_msg:
-                    return reply_msg
-                else:
-                    msg = "A bad reply was recieved."
-                    raise UserWarning(msg, (reply_packet, reply_msg))
+    It provides functions for requesting and recieving data as
+    well as changing the state of the coin validator.
+    """
     
-    return False
-
-def interpret_reply(reply_byte, packet_holder, verbose=False):
-    h = packet_holder
-    reply_length = h.bytes_returned
-    reply_type = h.type_returned
-    reply_int = map(ord, reply_byte)
-
-    if len(reply_int) < 2:
-        print 'Recieved small packet int: {0}   byte:{1}'.format(reply_int, reply_byte)
-        return False
-
-    msg_length = reply_int[1]
-    if verbose:
-        print "Recieved {0} bytes:".format(msg_length)
-
-    if msg_length != reply_length:
-        print 'Message length != return_length.  ml: {0}   rl:{1}'.format(msg_length, reply_length)
-        return False
-
-
-    if h.request_code == 254:
-        expected_reply = [1, 0, 2, 0, 253]
-        if reply_int != expected_reply:
-            msg = "Simple pool did not return expected message."
-            raise UserWarning(msg, (reply_int, expected_reply))
-
-    reply_msg_int = reply_int[4:-1]
-    reply_msg_byte = reply_byte[4:-1]
-    
-    if reply_type is str:
-        return str().join(reply_msg_byte)
-    elif reply_type is int:
-        return reply_msg_int
-    elif reply_type is bool:
-        return True
-    else:
-        return reply_msg_byte
-
-class CoinMessanger(object):
     r_info = dict(reset_device=(1, 0, bool),
                   comms_revision=(4, 3, int),              # Expected: 2, 4, 2
                   request_build_code=(192, 3, str),
@@ -130,6 +59,21 @@ class CoinMessanger(object):
                                                ))
 
     def accept_coins(self, state=None, verbose=False):
+        """Change accept coin state.
+
+        Parameters
+        ----------
+        state : bool
+          State to change the coin validator too.
+        verbose : bool
+          Flag to specify verbosity.
+
+        Raises
+        ------
+        UserWarning
+          -- If the state is not True or False.
+          -- If self.serial_object.isOpen() is False.
+        """
         if state is None:
             state = True
 
@@ -166,7 +110,15 @@ class CoinMessanger(object):
         #print reply_msg
 
     def set_accept_limit(self, coins=1, verbose=False):
+        """Sets the accept limit of the coin validator.
 
+        Parameters
+        ----------
+        coins : int
+          Number of coins.  Defaults to 1.
+        verbose : bool
+          Flag to be more verbose.
+        """
         if type(coins) != type(int()):
             msg = 'The number of coins must be an integer.'
             raise UserWarning(msg, (coins, type(coins)))
@@ -195,9 +147,24 @@ class CoinMessanger(object):
         print reply_msg
 
     def read_buffer(self):
+        """Shortcut for self.request('read_buffered_credit_or_error_codes')
+
+        Returns
+        -------
+        output : output from self.request('read_buffered_credit_or_error_codes')
+        """
         return self.request('read_buffered_credit_or_error_codes')
 
     def get_coin_id(self, slot, verbose=False):
+        """Prints out the coin id for a slot number.
+
+        Parameters
+        ----------
+        slot : int
+          Slot number.
+        verbose : bool
+          Flag to be more verbose.
+        """
         int_msg = make_msg(184, [slot])
         byte_msg = map(chr, int_msg)
         packet = pack('=cccccc', *byte_msg)
@@ -222,6 +189,26 @@ class CoinMessanger(object):
         print reply_msg
 
     def request(self, request_key, verbose=False):
+        """Requests messages programmed into the request Holder in __init__.
+
+        Parameters
+        ----------
+        request_key : key
+          Key in the request Holder.
+        verbose : bool
+          Flag to be more verbose.
+
+        Returns
+        -------
+        reply_msg : reply message from :py:func:`cctalk.tools.send_packet_and_get_reply`
+
+        Raises
+        ------
+        NotImplimentedError
+          If the key is not in the request Holder.
+        UserWarning
+          If self.serial_object.isOpen() is False
+        """
         r_dic = self.request_data.get(request_key, None)
         if not r_dic:
             msg = 'This request_key has not been implimented.'

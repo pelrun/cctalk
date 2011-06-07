@@ -21,12 +21,14 @@ excellent python-serial package.
 
 
 Contents:
+---------
 
 .. toctree::
    :maxdepth: 2
 
    api/tools
-   api/coin_acceptor
+   api/holder
+   api/coin_messenger
 
 
 Indices and tables

@@ -6,8 +6,7 @@ Module content
 # Author: David Schryer
 # Created: 2011
 
-__autodoc__ = ['Holder', 'make_serial_object', 'drop_to_ipython']
-
+__autodoc__ = ['make_serial_object', 'drop_to_ipython', 'make_msg', 'send_packet_and_get_reply', 'interpret_reply']
 __all__ = __autodoc__
 
 from IPython.Shell import IPShellEmbed
@@ -16,9 +15,167 @@ import os
 import serial
 import subprocess
 
+def make_msg(code, data=None, to_slave_addr=2, from_host_addr=1):
+    """Makes a ccTalk message from a ccTalk code and data to be sent with this packet.
+
+    Parameters
+    ----------
+    code : int
+      ccTalk code for this message.
+    data : list of integers
+      Data to be sent in this message.
+    to_slave_addr : int
+      Address of slave to be sent to.  Defaults to 2.
+    from_host_addr : int
+      Address of host that is sending the message.  Defaults to 1.
+
+    Returns
+    -------
+    packet : list of integers
+      An integer equivalent of the ccTalk packet.
+      This needs to be converted to a byte packet prior to sending.
+    """
+    if not data:
+        seq = [to_slave_addr, 0, from_host_addr, code]
+    else:
+        seq = [to_slave_addr, len(data), from_host_addr, code] + data
+    packet = numpy.array(seq)
+    end_byte = 256 - (packet.sum()%256)
+    packet = packet.tolist() + [end_byte]
+    return packet
+
+def send_packet_and_get_reply(serial_object, packet_holder, initial_wait=0.05, total_wait=1,
+                              debug=True, verbose=True):
+    """Sends a packet and gets a reply.
+
+    Parameters
+    ----------
+    serial_object : object made with :py:func:`cctalk.tools.make_serial_object`
+      Serial communication object.
+    packet_holder : Holder
+      Holder containing the packet and extended information about the packet being send.
+      See :py:class:`cctalk.coin_messenger.CoinMessenger` for Holder construction.
+    initial_wait : float
+      Time in seconds before probing for a reply.  Defaults to 0.05 seconds.
+    total_wait : float
+      Time in seconds before giving up.  Defaults to 1 second.
+    debug : bool
+      Flag to send out debug messages.
+    verbose : bool
+      Flag to be more verbose.
+
+    Returns
+    -------
+    reply_msg : message recieved from :py:func:`cctalk.tools.interpret_reply`
+      if reply_msg is False, no reply was obtained.
+
+    Raises
+    ------
+    UserWarning
+      If a reply was obtained but :py:func:`cctalk.tools.interpret_reply` returned False.
+    """
+    h = packet_holder
+    packet = h.packet
+    byte_msg = h.byte_message
+
+    s = time.time()
+    serial_object.write(packet)
+    time.sleep(initial_wait)
+    while True:
+        t = time.time() - s
+        if t > total_wait: break
+
+        raw = serial_object.read(serial_object.inWaiting())
+        if len(raw) > 1:
+            len_raw = len(raw)
+            out_byte = unpack('={0}c'.format(int(len_raw)), raw)
+            out_int = map(ord, out_byte)
+
+            if verbose:
+                print 'Recieved original packet int: {0}   byte:{1}'.format(out_int, out_byte)
+            
+            if len(out_byte) == len(byte_msg) and debug:
+                print 'Recieved original packet int: {0}   byte:{1}'.format(out_int, byte_msg)
+            elif len(out_byte) < len(byte_msg) and debug:
+                print 'Recieved small packet int: {0}   byte:{1}'.format(out_int, byte_msg)
+            else:
+                # The first part of the return is the echo in the line
+                # (a repeat of the message sent).
+                start_index = 5 + h.bytes_sent
+                reply_packet = out_byte[start_index:]
+
+                reply_msg = interpret_reply(reply_packet, packet_holder, verbose=verbose)
+
+                if reply_msg:
+                    return reply_msg
+                else:
+                    msg = "A bad reply was recieved."
+                    raise UserWarning(msg, (reply_packet, reply_msg))
+    
+    return False
+
+def interpret_reply(reply_byte, packet_holder, verbose=False):
+    """Interprets a reply byte message.
+
+    Parameters
+    ----------
+    reply_byte : byte message returned from serial_object.read(serial_object.inWaiting())
+      Often the reply contains an echo of the message sent.  This part should be removed first.
+    packet_holder : Holder
+      Holder containing the packet and extended information about the packet that was originally sent.
+      See :py:class:`cctalk.coin_messenger.CoinMessenger` for Holder construction.
+    verbose : bool
+      Flag to be more verbose.
+
+    Returns
+    -------
+    reply : The type dependes on the type expected.
+      Reply to the message in the type expected.
+
+    Raises
+    ------
+    UserWarning
+      If a simple pool did not return an expected message.
+      Assumes 1,2 for send recieve hosts.
+    """
+    h = packet_holder
+    reply_length = h.bytes_returned
+    reply_type = h.type_returned
+    reply_int = map(ord, reply_byte)
+
+    if len(reply_int) < 2:
+        print 'Recieved small packet int: {0}   byte:{1}'.format(reply_int, reply_byte)
+        return False
+
+    msg_length = reply_int[1]
+    if verbose:
+        print "Recieved {0} bytes:".format(msg_length)
+
+    if msg_length != reply_length:
+        print 'Message length != return_length.  ml: {0}   rl:{1}'.format(msg_length, reply_length)
+        return False
+
+
+    if h.request_code == 254:
+        expected_reply = [1, 0, 2, 0, 253]
+        if reply_int != expected_reply:
+            msg = "Simple pool did not return expected message."
+            raise UserWarning(msg, (reply_int, expected_reply))
+
+    reply_msg_int = reply_int[4:-1]
+    reply_msg_byte = reply_byte[4:-1]
+    
+    if reply_type is str:
+        return str().join(reply_msg_byte)
+    elif reply_type is int:
+        return reply_msg_int
+    elif reply_type is bool:
+        return True
+    else:
+        return reply_msg_byte
+
 def _get_tty_port(port_type):
-    '''
-    Returns the tty device name for either 'camera_relay' or 'coin_validator'.
+    '''Returns the tty device name for either 'camera_relay' or 'coin_validator'.
 
     Only used within this module.
     '''
@@ -45,10 +202,13 @@ def _get_tty_port(port_type):
 
 
 def make_serial_object(port_type):
-    '''
-    Makes a serial object that can be used for talking with either the relay or coin validator.
+    '''Makes a serial object that can be used for talking with either the relay or coin validator.
 
     port_type is a string that is either 'camera_relay' or 'coin_validator'.
+
+    Returns
+    -------
+    serial_object : object made by :py:class:`serial.Serial`
     '''
     tty_port = _get_tty_port(port_type)
     return serial.Serial(port="/dev/{0}".format(tty_port),
@@ -60,8 +220,7 @@ def make_serial_object(port_type):
                          )
 
 def drop_to_ipython(*z, **kwds):
-    '''
-    Drops to ipython at the point in the code where it is called to inspect the variables passed to it.
+    '''Drops to ipython at the point in the code where it is called to inspect the variables passed to it.
 
     Parameters
     ----------
@@ -86,46 +245,3 @@ def drop_to_ipython(*z, **kwds):
     ipshell = IPShellEmbed([], banner=b, exit_msg=em)
     ipshell(msg %(call_name))
 
-
-class Holder(object):
-    """This is a loose implimentation of  a dictionary object.
-
-    It gives access to its items as member variables of a class.
-    """
-    def __init__(self, item=None):
-
-        if item:
-            self.add(item)
-
-    def add(self, item):
-
-        if isinstance(item, dict):
-            self.__dict__.update(item)
-            
-        elif isinstance(item, Holder):
-            self.__dict__.update(item.__dict__)
-            
-        else:
-            msg = "This Holder only supports dictionaries and other Holder objects."
-            raise UserWarning(msg, (item, type(item)))
-
-    def __getitem__(self, key):
-        return self.__dict__[key]
-
-    def __setitem__(self, key, value):
-        self.__dict__[key] = value
-
-    def get(self, key, alternate=None):
-        return self.__dict__.get(key, alternate)
-
-    def has_key(self, key):
-        return self.__dict__.has_key(key)
-
-    def keys(self):
-        return self.__dict__.keys()
-    
-    def items(self):
-        return self.__dict__.items()
-    
-    def values(self):
-        return self.__dict__.values()
