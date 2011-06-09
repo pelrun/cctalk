@@ -3,11 +3,11 @@
 Module content
 --------------
 """
-# Author: David Schryer
-# Created: 2011
+# The python-cctalk package allows one to send ccTalk messages and decode replies from a coin validator. 
+license_text = "(C) 2011 David Schryer GNU GPLv3 or later."
+__copyright__ = license_text
 
 __autodoc__ = ['CoinMessenger']
-
 __all__ = __autodoc__
 
 import numpy

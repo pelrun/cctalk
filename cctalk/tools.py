@@ -3,8 +3,9 @@
 Module content
 --------------
 """
-# Author: David Schryer
-# Created: 2011
+# The python-cctalk package allows one to send ccTalk messages and decode replies from a coin validator. 
+license_text = "(C) 2011 David Schryer GNU GPLv3 or later."
+__copyright__ = license_text
 
 __autodoc__ = ['make_serial_object', 'drop_to_ipython', 'make_msg', 'send_packet_and_get_reply', 'interpret_reply']
 __all__ = __autodoc__
