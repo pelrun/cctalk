@@ -10,7 +10,6 @@ __copyright__ = license_text
 __autodoc__ = ['CoinMessenger']
 __all__ = __autodoc__
 
-import numpy
 import time
 
 from struct import pack, unpack, calcsize

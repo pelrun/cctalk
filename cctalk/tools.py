@@ -14,6 +14,7 @@ from IPython.Shell import IPShellEmbed
 
 import os
 import serial
+import numpy
 import subprocess
 
 def make_msg(code, data=None, to_slave_addr=2, from_host_addr=1):
@@ -176,41 +177,47 @@ def interpret_reply(reply_byte, packet_holder, verbose=False):
         return reply_msg_byte
 
 def _get_tty_port(port_type):
-    '''Returns the tty device name for either 'camera_relay' or 'coin_validator'.
+    """Returns the tty device name for either 'camera_relay' or 'coin_validator'.
 
     Only used within this module.
-    '''
+    """
     if port_type == 'camera_relay':
         usb_conn = '3-3'
     elif port_type == 'coin_validator':
         usb_conn = '3-2'
+    else:
+        msg = "This port_type has not yet been implimented yet."
+        raise NotImplimented(msg, (port_type))
 
     cmd = 'lshal |grep sysfs | grep ttyUSB | grep {0}'.format(usb_conn)
 
-    cmd_proc = subprocess.Popen(cmd,
-                                shell=True,
-                                stdout=subprocess.PIPE,
-                                stderr=subprocess.PIPE,
-                                env=os.environ)
-    cmd_out, cmd_err = cmd_proc.communicate()
+    proc = subprocess.Popen(cmd,
+                            shell=True,
+                            stdout=subprocess.PIPE,
+                            stderr=subprocess.PIPE,
+                            env=os.environ)
+    out, err = proc.communicate()
 
-    out_string = cmd_out.split('/tty/')
+    out_string = out.split('/tty/')
     if len(out_string) != 2:
-        msg = "No USB device {0} was found ({1}).  Look at: lshal |grep sysfs | grep ttyUSB".format(usb_conn, port_type)
-        raise UserWarning(msg, (cmd_out))
+        msg = "No USB device {0} was found ({1}).  Look at: lshal | grep sysfs | grep ttyUSB".format(usb_conn, port_type)
+        raise UserWarning(msg, (out))
 
     return out_string[1].split("'")[0]
 
 
-def make_serial_object(port_type):
-    '''Makes a serial object that can be used for talking with either the relay or coin validator.
+def make_serial_object(port_type, testing=False):
+    """Makes a serial object that can be used for talking with either the relay or coin validator.
 
     port_type is a string that is either 'camera_relay' or 'coin_validator'.
 
     Returns
     -------
     serial_object : object made by :py:class:`serial.Serial`
-    '''
+    """
+    if testing:
+        return serial.Serial(port="/dev/tty")
+
     tty_port = _get_tty_port(port_type)
     return serial.Serial(port="/dev/{0}".format(tty_port),
                          baudrate=9600,
