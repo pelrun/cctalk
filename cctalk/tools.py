@@ -187,7 +187,7 @@ def _get_tty_port(port_type):
         usb_conn = '3-2'
     else:
         msg = "This port_type has not yet been implimented yet."
-        raise NotImplimented(msg, (port_type))
+        raise NotImplemented(msg, (port_type))
 
     cmd = 'lshal |grep sysfs | grep ttyUSB | grep {0}'.format(usb_conn)
 
