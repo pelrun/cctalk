@@ -14,14 +14,13 @@ def test_get_tty_port(port_type=None, calling_fn=None):
     except Exception as e:
         raise AssertionError(msg.format(calling_fn, e))
 
-    return tty_port
 
 def test_make_serial_object():
     cf = 'test_make_serial_object'
     
     for port_type in ['camera_relay', 'coin_validator']:
-        tty_port = test_get_tty_port(port_type, calling_fn=cf)
-        so = tools.make_serial_object(tty_port)
+        test_get_tty_port(port_type, calling_fn=cf)
+        so = tools.make_serial_object(port_type)
 
 def test_make_msg():
     

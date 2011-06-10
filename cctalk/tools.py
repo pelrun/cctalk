@@ -206,7 +206,7 @@ def _get_tty_port(port_type):
     return out_string[1].split("'")[0]
 
 
-def make_serial_object(port_type, testing=False):
+def make_serial_object(port_type):
     """Makes a serial object that can be used for talking with either the relay or coin validator.
 
     port_type is a string that is either 'camera_relay' or 'coin_validator'.
@@ -215,9 +215,7 @@ def make_serial_object(port_type, testing=False):
     -------
     serial_object : object made by :py:class:`serial.Serial`
     """
-    if testing:
-        return serial.Serial(port="/dev/tty")
-
+    
     tty_port = _get_tty_port(port_type)
     return serial.Serial(port="/dev/{0}".format(tty_port),
                          baudrate=9600,
