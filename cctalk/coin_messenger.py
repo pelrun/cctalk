@@ -13,8 +13,8 @@ __all__ = __autodoc__
 import time
 
 from struct import pack, unpack, calcsize
-from cctalk.tools import make_serial_object, make_msg, send_packet_and_get_reply, interpret_reply
-from cctalk.holder import Holder
+from . tools import make_serial_object, make_msg, send_packet_and_get_reply, interpret_reply
+from . holder import Holder
 
 class CoinMessenger(object):
     """This is an object used to talk with ccTalk coin validators.
