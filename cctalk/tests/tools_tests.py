@@ -18,7 +18,7 @@ def test_get_tty_port(port_type=None, calling_fn=None):
 def test_make_serial_object():
     cf = 'test_make_serial_object'
     
-    for port_type in ['camera_relay', 'coin_validator']:
+    for port_type in ['coin_validator']:
         test_get_tty_port(port_type, calling_fn=cf)
         so = tools.make_serial_object(port_type)
 

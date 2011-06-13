@@ -177,13 +177,23 @@ def interpret_reply(reply_byte, packet_holder, verbose=False):
         return reply_msg_byte
 
 def _get_tty_port(port_type):
-    """Returns the tty device name for either 'camera_relay' or 'coin_validator'.
+    """Returns the tty device name for 'coin_validator'.
 
+    Parameters
+    ----------
+    port_type : str
+      Type of port to connect to.  Currently only 'coin_validator is valid.'
+
+    Notes
+    -----
     Only used within this module.
+
+    Raises
+    ------
+    NotImplementedError
+      If a valid port_type is not specified.
     """
-    if port_type == 'camera_relay':
-        usb_conn = '3-3'
-    elif port_type == 'coin_validator':
+    if port_type == 'coin_validator':
         usb_conn = '3-2'
     else:
         msg = "This port_type has not yet been implimented yet."
@@ -207,9 +217,14 @@ def _get_tty_port(port_type):
 
 
 def make_serial_object(port_type):
-    """Makes a serial object that can be used for talking with either the relay or coin validator.
+    """Makes a serial object that can be used for talking with the coin validator.
 
-    port_type is a string that is either 'camera_relay' or 'coin_validator'.
+    port_type is a string that can currently only be equal to 'coin_validator'.
+
+    Paramters
+    ---------
+    port_type : str
+      Type of port to connect to.  Currently only 'coin_validator is valid.'
 
     Returns
     -------
