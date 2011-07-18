@@ -14,7 +14,6 @@ from IPython.Shell import IPShellEmbed
 
 import os
 import serial
-import numpy
 import subprocess
 
 def make_msg(code, data=None, to_slave_addr=2, from_host_addr=1):
@@ -41,9 +40,11 @@ def make_msg(code, data=None, to_slave_addr=2, from_host_addr=1):
         seq = [to_slave_addr, 0, from_host_addr, code]
     else:
         seq = [to_slave_addr, len(data), from_host_addr, code] + data
-    packet = numpy.array(seq)
-    end_byte = 256 - (packet.sum()%256)
-    packet = packet.tolist() + [end_byte]
+    packet_sum = 0
+    for i in seq:
+        packet_sum += i
+    end_byte = 256 - (packet_sum%256)
+    packet = seq + [end_byte]
     return packet
 
 def send_packet_and_get_reply(serial_object, packet_holder, initial_wait=0.05, total_wait=1,
