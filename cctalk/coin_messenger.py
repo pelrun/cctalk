@@ -223,21 +223,4 @@ class CoinMessenger(object):
         reply_msg = send_packet_and_get_reply(self.serial_object, r_dic, verbose=verbose)
 
         return reply_msg
-            
-
-if __name__ == '__main__':
-    coin_validator_connection = make_serial_object('coin_validator')
-    coin_validator_connection.open()
-    coin_messanger = CoinMessanger(coin_validator_connection)
-
-    #for i in range(1,17):
-    #    coin_messanger.get_coin_id(i)
         
-    coin_messanger.read_buffer()
-    coin_messanger.accept_coins(True)
-
-    coin_messanger.request('reset_device', verbose=True)
-    coin_messanger.request('data_storage_availability', verbose=True)
-    
-    coin_messanger.read_buffer()
-    coin_messanger.set_accept_limit(25)
