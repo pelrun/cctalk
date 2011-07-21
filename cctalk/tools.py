@@ -16,6 +16,7 @@ import os
 import serial
 import time
 import subprocess
+from struct import unpack
 
 def make_msg(code, data=None, to_slave_addr=2, from_host_addr=1):
     """Makes a ccTalk message from a ccTalk code and data to be sent with this packet.

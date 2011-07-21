@@ -12,7 +12,7 @@ __all__ = __autodoc__
 
 import time
 
-from struct import pack, unpack, calcsize
+from struct import pack, calcsize
 from . tools import make_serial_object, make_msg, send_packet_and_get_reply, interpret_reply
 from . holder import Holder
 
