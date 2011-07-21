@@ -57,7 +57,7 @@ class CoinMessenger(object):
                                                user_message=k,
                                                ))
 
-    def accept_coins(self, state=None, verbose=False):
+    def accept_coins(self, state=None, verbose=True):
         """Change accept coin state.
 
         Parameters
@@ -102,13 +102,13 @@ class CoinMessenger(object):
                          type_returned=bool,
                          user_message='modify_inhibit_status_{0}'.format(s_msg),
                          ))
-        #print 'Requesting: {0}'.format(ph.user_message)
-        #if verbose:
-        #    print 'Sending   int_msg: {0}   byte_msg: {1}'.format(ph.integer_message, ph.byte_message)
+        print 'Requesting: {0}'.format(ph.user_message)
+        if verbose:
+            print 'Sending   int_msg: {0}   byte_msg: {1}'.format(ph.integer_message, ph.byte_message)
         reply_msg = send_packet_and_get_reply(self.serial_object, ph, verbose=verbose)
-        #print reply_msg
+        print reply_msg
 
-    def set_accept_limit(self, coins=1, verbose=False):
+    def set_accept_limit(self, coins=1, verbose=True):
         """Sets the accept limit of the coin validator.
 
         Parameters
@@ -154,7 +154,7 @@ class CoinMessenger(object):
         """
         return self.request('read_buffered_credit_or_error_codes')
 
-    def get_coin_id(self, slot, verbose=False):
+    def get_coin_id(self, slot, verbose=True):
         """Prints out the coin id for a slot number.
 
         Parameters
@@ -187,7 +187,7 @@ class CoinMessenger(object):
         reply_msg = send_packet_and_get_reply(self.serial_object, ph, verbose=verbose)
         print reply_msg
 
-    def request(self, request_key, verbose=False):
+    def request(self, request_key, verbose=True):
         """Requests messages programmed into the request Holder in __init__.
 
         Parameters
@@ -217,7 +217,7 @@ class CoinMessenger(object):
             msg = "The serial_object.isOpen() is False."
             raise UserWarning(msg, (self.serial_object.isOpen()))
         
-        #print 'Requesting: {0}'.format(r_dic.user_message)
+        print 'Requesting: {0}'.format(r_dic.user_message)
         if verbose:
             print 'Sending   int_msg: {0}   byte_msg: {1}'.format(r_dic.integer_message, r_dic.byte_message)
         reply_msg = send_packet_and_get_reply(self.serial_object, r_dic, verbose=verbose)
@@ -236,18 +236,8 @@ if __name__ == '__main__':
     coin_messanger.read_buffer()
     coin_messanger.accept_coins(True)
 
-    #coin_messanger.request('reset_device', verbose=True)
-    #coin_messanger.request('data_storage_availability', verbose=True)
+    coin_messanger.request('reset_device', verbose=True)
+    coin_messanger.request('data_storage_availability', verbose=True)
     
     coin_messanger.read_buffer()
     coin_messanger.set_accept_limit(25)
-    
-    s = time.time()
-    while True:
-        coin_messanger.accept_coins(True)
-        data_buffer = coin_messanger.read_buffer()
-        print data_buffer
-        time.sleep(0.2)
-
-        if time.time() - s > 40:
-            break
