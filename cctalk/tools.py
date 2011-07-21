@@ -14,6 +14,7 @@ from IPython.Shell import IPShellEmbed
 
 import os
 import serial
+import time
 import subprocess
 
 def make_msg(code, data=None, to_slave_addr=2, from_host_addr=1):
