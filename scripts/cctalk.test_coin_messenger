@@ -10,7 +10,7 @@ __copyright__ = license_text
 from cctalk.coin_messenger import CoinMessenger
 from cctalk.tools import make_serial_object
 
-def get_coin_type(self, coin_messenger):       
+def get_coin_type(coin_messenger):       
 
     # Maps the coin value to the number the coin validator outputs.
     coin_dic = {4:0.1, 5:0.2, 6:0.50, 7:1, 8:2}
