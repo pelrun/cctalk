@@ -13,17 +13,12 @@ from cctalk.tools import make_serial_object
 def get_coin_type(coin_messenger):       
 
     # Maps the coin value to the number the coin validator outputs.
-    coin_dic = {4:0.1, 5:0.2, 6:0.50, 7:1, 8:2}
-                
     coin_messenger.accept_coins(True)
     data_buffer = coin_messenger.read_buffer()
-            
-    if self.previous_buffer is None:
-        return None
     
-    elif self.previous_buffer[0] + 1 == data_buffer[0]:
-        coin_type = coin_dic[data_buffer[1]]
-        return coin_type
+    coin_dic = {4:0.1, 5:0.2, 6:0.50, 7:1, 8:2}
+    coin_type = coin_dic[data_buffer[1]]
+    return coin_type
         
 
 
