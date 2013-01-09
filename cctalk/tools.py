@@ -10,7 +10,7 @@ __copyright__ = license_text
 __autodoc__ = ['make_serial_object', 'drop_to_ipython', 'make_msg', 'send_packet_and_get_reply', 'interpret_reply']
 __all__ = __autodoc__
 
-from IPython.Shell import IPShellEmbed
+from IPython.frontend.terminal.embed import InteractiveShellEmbed
 
 import os
 import serial
@@ -243,21 +243,18 @@ def make_serial_object(port_type):
                          xonxoff=True,
                          )
 
-def drop_to_ipython(*z, **kwds):
-    '''Drops to ipython at the point in the code where it is called to inspect the variables passed to it.
+def drop_to_ipython(local_variables, *variables_to_inspect):
+    '''
+    Drops to ipython at the point in the code where it is called to inspect the variables passed to it.
 
     Parameters
     ----------
-    z: tuple
+    local_variables : list
+      Usually one would pass the output of locals().
+    variables_to_inspect: tuple
       All variables passed to this routine are wrapped into a tuple.
-    kwds : dict
-      If the keyword "local_variables" is passed (output of locals()),
-      the call name is extracted from the calling class.
     '''
-    lvs = kwds.get('local_variables', False) 
-    if not lvs:
-        lvs = []
-        
+
     try:
         call_name = local_variables['self'].__module__
     except Exception:
@@ -266,6 +263,6 @@ def drop_to_ipython(*z, **kwds):
     b = 'Dropping into IPython'
     em = 'Leaving Interpreter, back to program.'
     msg = '***Called from %s. Hit Ctrl-D to exit interpreter and continue program.'
-    ipshell = IPShellEmbed([], banner=b, exit_msg=em)
+    ipshell = InteractiveShellEmbed([], banner1=b, exit_msg=em)
     ipshell(msg %(call_name))
 
