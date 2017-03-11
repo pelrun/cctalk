@@ -25,14 +25,13 @@ def get_coin_type(coin_messenger):
         
 
 
-coin_validator_connection = make_serial_object('coin_validator')
-coin_validator_connection.open()
+coin_validator_connection = make_serial_object('/dev/ttyUSB0')
 coin_messenger = CoinMessenger(coin_validator_connection)
     
 coin_type = get_coin_type(coin_messenger)
 
-coin_messenger.request('reset_device', verbose=True)
-coin_messenger.request('data_storage_availability', verbose=True)
+coin_messenger.request('reset_device')
+coin_messenger.request('data_storage_availability')
     
 coin_messenger.read_buffer()
 coin_messenger.set_accept_limit(25)

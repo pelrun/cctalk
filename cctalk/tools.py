@@ -7,10 +7,10 @@ Module content
 license_text = "(C) 2011 David Schryer GNU GPLv3 or later."
 __copyright__ = license_text
 
-__autodoc__ = ['make_serial_object', 'drop_to_ipython', 'make_msg', 'send_packet_and_get_reply', 'interpret_reply']
+__autodoc__ = ['make_serial_object', 'drop_to_ipython', 'make_msg', 'send_message_and_get_reply', 'interpret_reply']
 __all__ = __autodoc__
 
-from IPython.frontend.terminal.embed import InteractiveShellEmbed
+from IPython.terminal.embed import InteractiveShellEmbed
 
 import os
 import serial
@@ -19,7 +19,7 @@ import subprocess
 from struct import unpack
 
 def make_msg(code, data=None, to_slave_addr=2, from_host_addr=1):
-    """Makes a ccTalk message from a ccTalk code and data to be sent with this packet.
+    """Makes a ccTalk message from a ccTalk code and data to be sent with this message.
 
     Parameters
     ----------
@@ -34,38 +34,54 @@ def make_msg(code, data=None, to_slave_addr=2, from_host_addr=1):
 
     Returns
     -------
-    packet : list of integers
-      An integer equivalent of the ccTalk packet.
-      This needs to be converted to a byte packet prior to sending.
+    message : list of integers
+      An integer equivalent of the ccTalk message.
+      This needs to be converted to a byte message prior to sending.
     """
     if not data:
         seq = [to_slave_addr, 0, from_host_addr, code]
     else:
         seq = [to_slave_addr, len(data), from_host_addr, code] + data
-    packet_sum = 0
+    message_sum = 0
     for i in seq:
-        packet_sum += i
-    end_byte = 256 - (packet_sum%256)
-    packet = seq + [end_byte]
-    return packet
+        message_sum += i
+    end_byte = 256 - (message_sum%256)
+    message = seq + [end_byte]
+    return message
 
-def send_packet_and_get_reply(serial_object, packet_holder, initial_wait=0.05, total_wait=1,
-                              debug=True, verbose=True):
-    """Sends a packet and gets a reply.
+def read_message(serial_object):
+    serial_object.timeout = 1
+    serial_object.inter_byte_timeout = 0.1 # should be 0.05 but linux doesn't support it
+
+    header = serial_object.read(4)
+    if len(header)<4:
+	return False
+
+    # header: destination, length, source, message_id
+
+    message_length = ord(header[1])+1
+    body = serial_object.read(message_length)
+
+    if len(body)<message_length:
+	return False
+
+    reply = map(ord,header+body)
+
+    # TODO: check checksum
+
+    return reply
+
+
+def send_message_and_get_reply(serial_object, message, verbose=False):
+    """Sends a message and gets a reply.
 
     Parameters
     ----------
     serial_object : object made with :py:func:`cctalk.tools.make_serial_object`
       Serial communication object.
-    packet_holder : Holder
-      Holder containing the packet and extended information about the packet being send.
+    message : Holder
+      Holder containing the message and extended information about the message being send.
       See :py:class:`cctalk.coin_messenger.CoinMessenger` for Holder construction.
-    initial_wait : float
-      Time in seconds before probing for a reply.  Defaults to 0.05 seconds.
-    total_wait : float
-      Time in seconds before giving up.  Defaults to 1 second.
-    debug : bool
-      Flag to send out debug messages.
     verbose : bool
       Flag to be more verbose.
 
@@ -79,147 +95,50 @@ def send_packet_and_get_reply(serial_object, packet_holder, initial_wait=0.05, t
     UserWarning
       If a reply was obtained but :py:func:`cctalk.tools.interpret_reply` returned False.
     """
-    h = packet_holder
-    packet = h.packet
-    byte_msg = h.byte_message
 
-    s = time.time()
+    if not serial_object.isOpen():
+        msg = 'The serial port is not open.'
+        raise UserWarning(msg, (serial_object.isOpen()))
+
+    packet = ''.join(map(chr,message['message']))
+    serial_object.reset_input_buffer()
+    serial_object.reset_output_buffer()
+
     serial_object.write(packet)
-    time.sleep(initial_wait)
-    while True:
-        t = time.time() - s
-        if t > total_wait: break
 
-        raw = serial_object.read(serial_object.inWaiting())
-        if len(raw) > 1:
-            len_raw = len(raw)
-            out_byte = unpack('={0}c'.format(int(len_raw)), raw)
-            out_int = map(ord, out_byte)
+    output = read_message(serial_object)
+    reply = read_message(serial_object)
 
-            if verbose:
-                print 'Recieved original packet int: {0}   byte:{1}'.format(out_int, out_byte)
-            
-            if len(out_byte) == len(byte_msg) and debug:
-                print 'Recieved original packet int: {0}   byte:{1}'.format(out_int, byte_msg)
-            elif len(out_byte) < len(byte_msg) and debug:
-                print 'Recieved small packet int: {0}   byte:{1}'.format(out_int, byte_msg)
-            else:
-                # The first part of the return is the echo in the line
-                # (a repeat of the message sent).
-                start_index = 5 + h.bytes_sent
-                reply_packet = out_byte[start_index:]
+    if not reply or reply[0] != 1:
+	return False 
 
-                reply_msg = interpret_reply(reply_packet, packet_holder, verbose=verbose)
+    reply_length = reply[1]
+    expected_length = message['bytes_expected']
+    reply_type = message['type_returned']
 
-                if reply_msg:
-                    return reply_msg
-                else:
-                    msg = "A bad reply was recieved."
-                    raise UserWarning(msg, (reply_packet, reply_msg))
-    
-    return False
-
-def interpret_reply(reply_byte, packet_holder, verbose=False):
-    """Interprets a reply byte message.
-
-    Parameters
-    ----------
-    reply_byte : byte message returned from serial_object.read(serial_object.inWaiting())
-      Often the reply contains an echo of the message sent.  This part should be removed first.
-    packet_holder : Holder
-      Holder containing the packet and extended information about the packet that was originally sent.
-      See :py:class:`cctalk.coin_messenger.CoinMessenger` for Holder construction.
-    verbose : bool
-      Flag to be more verbose.
-
-    Returns
-    -------
-    reply : The type dependes on the type expected.
-      Reply to the message in the type expected.
-
-    Raises
-    ------
-    UserWarning
-      If a simple pool did not return an expected message.
-      Assumes 1,2 for send recieve hosts.
-    """
-    h = packet_holder
-    reply_length = h.bytes_returned
-    reply_type = h.type_returned
-    reply_int = map(ord, reply_byte)
-
-    if len(reply_int) < 2:
-        print 'Recieved small packet int: {0}   byte:{1}'.format(reply_int, reply_byte)
+    if len(reply) < 2:
+        print 'Recieved small message: {0}'.format(reply)
         return False
 
-    msg_length = reply_int[1]
     if verbose:
         print "Recieved {0} bytes:".format(msg_length)
 
-    if msg_length != reply_length:
-        print 'Message length != return_length.  ml: {0}   rl:{1}'.format(msg_length, reply_length)
+    if expected_length != -1 and reply_length != expected_length:
+        print 'Expected {1} bytes but received {0}'.format(reply_length, expected_length)
         return False
 
-
-    if h.request_code == 254:
-        expected_reply = [1, 0, 2, 0, 253]
-        if reply_int != expected_reply:
-            msg = "Simple pool did not return expected message."
-            raise UserWarning(msg, (reply_int, expected_reply))
-
-    reply_msg_int = reply_int[4:-1]
-    reply_msg_byte = reply_byte[4:-1]
+    reply_data = reply[4:-1]
     
     if reply_type is str:
-        return str().join(reply_msg_byte)
+        return str().join(map(chr,reply_data))
     elif reply_type is int:
-        return reply_msg_int
+        return reply_data
     elif reply_type is bool:
         return True
     else:
-        return reply_msg_byte
+        return map(chr,reply)
 
-def _get_tty_port(port_type):
-    """Returns the tty device name for 'coin_validator'.
-
-    Parameters
-    ----------
-    port_type : str
-      Type of port to connect to.  Currently only 'coin_validator is valid.'
-
-    Notes
-    -----
-    Only used within this module.
-
-    Raises
-    ------
-    NotImplementedError
-      If a valid port_type is not specified.
-    """
-    if port_type == 'coin_validator':
-        usb_conn = '3-2'
-    else:
-        msg = "This port_type has not yet been implimented yet."
-        raise NotImplementedError(msg, (port_type))
-
-    cmd = 'lshal |grep sysfs | grep ttyUSB | grep {0}'.format(usb_conn)
-
-    proc = subprocess.Popen(cmd,
-                            shell=True,
-                            stdout=subprocess.PIPE,
-                            stderr=subprocess.PIPE,
-                            env=os.environ)
-    out, err = proc.communicate()
-
-    out_string = out.split('/tty/')
-    if len(out_string) != 2:
-        msg = "No USB device {0} was found ({1}).  Look at: lshal | grep sysfs | grep ttyUSB".format(usb_conn, port_type)
-        raise UserWarning(msg, (out))
-
-    return out_string[1].split("'")[0]
-
-
-def make_serial_object(port_type):
+def make_serial_object(tty_port):
     """Makes a serial object that can be used for talking with the coin validator.
 
     port_type is a string that can currently only be equal to 'coin_validator'.
@@ -234,8 +153,7 @@ def make_serial_object(port_type):
     serial_object : object made by :py:class:`serial.Serial`
     """
     
-    tty_port = _get_tty_port(port_type)
-    return serial.Serial(port="/dev/{0}".format(tty_port),
+    return serial.Serial(port=tty_port,
                          baudrate=9600,
                          parity=serial.PARITY_NONE,
                          stopbits=serial.STOPBITS_ONE,
