@@ -16,7 +16,7 @@ from . tools import make_serial_object, make_msg, send_message_and_get_reply
 
 def log(message, verbose=False):
     if verbose:
-        print 'Requesting: {0}'.format(message['user_message'])
+        print('Requesting: {0}'.format(message['user_message']))
 
 class CoinMessenger(object):
     """This is an object used to talk with ccTalk coin validators.
@@ -56,8 +56,8 @@ class CoinMessenger(object):
     def __init__(self, serial_object, verbose = False):
         self.serial_object = serial_object
         self.request_data = {}
-	self.verbose = verbose
-        for k, v in self.r_info.items():
+        self.verbose = verbose
+        for k, v in list(self.r_info.items()):
             self.request_data[k] = dict(message=make_msg(v[0]),
                                         request_code=v[0],
                                         bytes_expected=v[1],
@@ -93,7 +93,7 @@ class CoinMessenger(object):
                   user_message='modify_inhibit_status_{0}'.format(mask),
                   )
 
-	log(ph, verbose=self.verbose)
+        log(ph, verbose=self.verbose)
         reply_msg = send_message_and_get_reply(self.serial_object, ph, verbose=self.verbose)
         return reply_msg
 
@@ -123,7 +123,7 @@ class CoinMessenger(object):
                   type_returned=bool,
                   user_message='modify_master_inhibit_status_{0}'.format(state),
                   )
-	log(ph, verbose=self.verbose)
+        log(ph, verbose=self.verbose)
         reply_msg = send_message_and_get_reply(self.serial_object, ph, verbose=self.verbose)
         return reply_msg
 
@@ -146,9 +146,9 @@ class CoinMessenger(object):
                   type_returned=bool,
                   user_message='set_accept_limit_{0}'.format(coins),
                   )
-	log(ph, verbose=self.verbose)
+        log(ph, verbose=self.verbose)
         reply_msg = send_message_and_get_reply(self.serial_object, ph, verbose=self.verbose)
-        print reply_msg
+        print(reply_msg)
 
     def read_buffer(self):
         """Shortcut for self.request('read_buffered_credit_or_error_codes')
@@ -174,7 +174,7 @@ class CoinMessenger(object):
                   type_returned=str,
                   user_message='get_coin_id_{0}'.format(slot),
                   )
-	log(ph, verbose=self.verbose)
+        log(ph, verbose=self.verbose)
         reply_msg = send_message_and_get_reply(self.serial_object, ph, verbose=self.verbose)
         return reply_msg
 
@@ -187,7 +187,7 @@ class CoinMessenger(object):
           Slot number.
         """
 
-	text_raw = map(ord,'{:.<6}'.format(text))
+        text_raw = list(map(ord,'{:.<6}'.format(text)))
         ph = dict(message=make_msg(185, [slot] + text_raw),
                   request_code=185,
                   bytes_expected=0,
@@ -195,7 +195,7 @@ class CoinMessenger(object):
                   type_returned=bool,
                   user_message='modify_coin_id_{0}_{1}'.format(slot,text),
                   )
-	log(ph, verbose=self.verbose)
+        log(ph, verbose=self.verbose)
         reply_msg = send_message_and_get_reply(self.serial_object, ph, verbose=self.verbose)
         return reply_msg
 
@@ -207,7 +207,7 @@ class CoinMessenger(object):
                   type_returned=bool,
                   user_message='teach_mode_control_{0}'.format(slot),
                   )
-	log(ph, verbose=self.verbose)
+        log(ph, verbose=self.verbose)
         reply_msg = send_message_and_get_reply(self.serial_object, ph, verbose=self.verbose)
         return reply_msg
 

@@ -55,7 +55,7 @@ def read_message(serial_object):
 
     header = serial_object.read(4)
     if len(header)<4:
-	return False
+        return False
 
     # header: destination, length, source, message_id
 
@@ -63,9 +63,9 @@ def read_message(serial_object):
     body = serial_object.read(message_length)
 
     if len(body)<message_length:
-	return False
+        return False
 
-    reply = map(ord,header+body)
+    reply = list(map(ord,header+body))
 
     # TODO: check checksum
 
@@ -110,21 +110,21 @@ def send_message_and_get_reply(serial_object, message, verbose=False):
     reply = read_message(serial_object)
 
     if not reply or reply[0] != 1:
-	return False 
+        return False 
 
     reply_length = reply[1]
     expected_length = message['bytes_expected']
     reply_type = message['type_returned']
 
     if len(reply) < 2:
-        print 'Recieved small message: {0}'.format(reply)
+        print('Recieved small message: {0}'.format(reply))
         return False
 
     if verbose:
-        print "Recieved {0} bytes:".format(msg_length)
+        print("Recieved {0} bytes:".format(msg_length))
 
     if expected_length != -1 and reply_length != expected_length:
-        print 'Expected {1} bytes but received {0}'.format(reply_length, expected_length)
+        print('Expected {1} bytes but received {0}'.format(reply_length, expected_length))
         return False
 
     reply_data = reply[4:-1]
@@ -136,7 +136,7 @@ def send_message_and_get_reply(serial_object, message, verbose=False):
     elif reply_type is bool:
         return True
     else:
-        return map(chr,reply)
+        return list(map(chr,reply))
 
 def make_serial_object(tty_port):
     """Makes a serial object that can be used for talking with the coin validator.
